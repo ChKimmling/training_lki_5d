@@ -1,0 +1,33 @@
+flowchart TD
+    A["Virtuelle Adresse"] --> B{"TLB Lookup"}
+
+    B -->|"TLB Hit"| C["Physische Adresse"]
+    B -->|"TLB Miss"| D["Page Table Walk"]
+
+    D --> E{"Gültige Übersetzung?"}
+
+    E -->|"Ja"| F["TLB aktualisieren"]
+    F --> C
+
+    E -->|"Nein"| G["Page Fault"]
+    G --> H["Linux-Kernel: Page-Fault-Handler"]
+
+    H --> I{"Zugriff gültig?"}
+
+    I -->|"Ja"| J["Seite bereitstellen oder Mapping aktualisieren"]
+    J --> K["Instruktion erneut ausführen"]
+    K --> B
+
+    I -->|"Nein"| L["SIGSEGV"]
+
+    C --> M["Zugriff auf RAM"]
+
+    classDef normal fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
+    classDef success fill:#dcfce7,stroke:#16a34a,color:#166534
+    classDef warning fill:#ffedd5,stroke:#ea580c,color:#9a3412
+    classDef error fill:#fee2e2,stroke:#dc2626,color:#991b1b
+
+    class A,B,D normal
+    class C,F,J,K,M success
+    class E,G,H,I warning
+    class L error
