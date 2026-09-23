@@ -13,10 +13,15 @@
 #include <linux/delay.h>
 #include <linux/errno.h>
 #include <linux/init.h>
+#include <linux/slab.h>
 
 #define DEVICE_NAME "data-race"
 
 static unsigned int free_slots = 1;
+
+struct data_race_file {
+	bool reserved;
+};
 
 static unsigned int delay_us;
 module_param(delay_us, uint, 0644);
@@ -32,7 +37,7 @@ MODULE_PARM_DESC(delay_us,
  *
  * @return 0 bei erfolgreicher Reservierung, andernfalls -ENOSPC.
  */
-int reserve_slot(void)
+static int reserve_slot(void)
 {
 	if (free_slots == 0)
 		return -ENOSPC;
@@ -62,15 +67,14 @@ static void release_slot(void)
  */
 static int data_race_open(struct inode *inode, struct file *file)
 {
-	int ret = reserve_slot();
+	struct data_race_file *state;
 
-	if (ret)
-		pr_info("data-race: open() abgelehnt, free_slots=%u (%d)\n",
-			free_slots, ret);
-	else
-		pr_info("data-race: open() ok, free_slots=%u\n", free_slots);
+	state = kzalloc(sizeof(*state), GFP_KERNEL);
+	if (!state)
+		return -ENOMEM;
 
-	return ret;
+	file->private_data = state;
+	return 0;
 }
 
 /**
@@ -82,13 +86,19 @@ static int data_race_open(struct inode *inode, struct file *file)
  */
 static int data_race_release(struct inode *inode, struct file *file)
 {
-	release_slot();
-	pr_info("data-race: release(), free_slots=%u\n", free_slots);
+	struct data_race_file *state = file->private_data;
+
+	if (state->reserved) {
+		release_slot();
+		pr_info("data-race: release(), free_slots=%u\n", free_slots);
+	}
+
+	kfree(state);
 	return 0;
 }
 
 /**
- * @brief Akzeptiert beliebigen Schreibzugriff auf das Geraet.
+ * @brief Reserviert beim ersten Schreibzugriff einen Slot.
  *
  * Beispiel: "echo reserve > /dev/data-race".
  *
@@ -101,6 +111,21 @@ static int data_race_release(struct inode *inode, struct file *file)
 static ssize_t data_race_write(struct file *file, const char __user *buf,
 				size_t count, loff_t *ppos)
 {
+	struct data_race_file *state = file->private_data;
+	int ret;
+
+	if (state->reserved)
+		return count;
+
+	ret = reserve_slot();
+	if (ret) {
+		pr_info("data-race: write() abgelehnt, free_slots=%u (%d)\n",
+			free_slots, ret);
+		return ret;
+	}
+
+	state->reserved = true;
+	pr_info("data-race: write() ok, free_slots=%u\n", free_slots);
 	return count;
 }
 
