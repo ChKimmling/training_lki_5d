@@ -18,11 +18,11 @@ int reserve_slot(void)
 }
 ```
 
-Jeder Zugriff (`open()`/`write()`) auf `/dev/data-race` ruft `reserve_slot()`
-auf, `close()` gibt den Slot über `release_slot()` wieder frei. Da Check und
-Dekrement nicht atomar sind, können zwei parallele Zugriffe beide den Check
-passieren, bevor einer dekrementiert hat - `free_slots` wird dann mehrfach
-reserviert bzw. läuft als `unsigned int` unter 0.
+Der erste `write()` auf einen geöffneten Dateideskriptor von `/dev/data-race`
+ruft `reserve_slot()` auf; `close()` gibt den Slot über `release_slot()` wieder
+frei. Da Check und Dekrement nicht atomar sind, können zwei parallele Writes
+beide den Check passieren, bevor einer dekrementiert hat - `free_slots` wird
+dann mehrfach reserviert bzw. läuft als `unsigned int` unter 0.
 
 Mit dem Modulparameter `delay_us` lässt sich das Rennfenster künstlich
 vergrößern (`insmod data_race.ko delay_us=100000`), um den Race im Training
@@ -42,8 +42,8 @@ sudo ./test_data_race.sh [ITERATIONEN] [DELAY_US]
 
 Das Skript lädt das Modul, lässt in jeder Iteration zwei Worker parallel
 `echo reserve > /dev/data-race` ausführen und gibt am Ende die letzten 50
-Zeilen aus `dmesg` aus. Ein Race zeigt sich, wenn mehrfach hintereinander
-`open() ok` geloggt wird, obwohl `free_slots` bereits 0 war.
+Zeilen aus `dmesg` aus. Ein Race zeigt sich, wenn zwei `write() ok`-Meldungen
+für dieselbe Iteration erscheinen, obwohl nur ein Slot verfügbar ist.
 
 ## Aufräumen
 
