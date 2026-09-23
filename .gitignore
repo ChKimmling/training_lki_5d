@@ -1,1 +1,11 @@
 .codex
+
+# External kernel module build artifacts
+*.ko
+*.mod
+*.mod.c
+*.mod.o
+*.o
+.*.cmd
+Module.symvers
+modules.order
