@@ -82,8 +82,7 @@ static const struct file_operations lab_fops = {
 	.open    = lab_open,
 	.release = lab_release,
 	.read    = lab_read,
-	.write   = lab_write,
-	.llseek  = no_llseek,
+	.write   = lab_write
 };
 
 static int __init lab_init(void)
